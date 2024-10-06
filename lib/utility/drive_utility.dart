@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:disks_desktop/disks_desktop.dart';
+import 'package:flutter/material.dart';
+
 class DriveUtility {
-  List<String> getDrives() {
+  Future<List<Disk>> getDrives() async {
     if (Platform.isLinux) {
       return _getLinuxDrives();
     } else {
@@ -9,24 +12,18 @@ class DriveUtility {
     }
   }
 
-  List<String> _getLinuxDrives() {
-    // Common mount points for external drives
-    List<String> mountPoints = [
-      '/media',
-      '/mnt',
-    ];
+  Future<List<Disk>> _getLinuxDrives() async {
+    final repository = DisksRepository();
+    final disks = await repository.query;
+    debugPrint('devices $disks');
 
-    List<String> drives = [];
-    for (var mount in mountPoints) {
-      Directory dir = Directory(mount);
-      if (dir.existsSync()) {
-        drives.addAll(dir
-            .listSync()
-            .whereType<Directory>()
-            .map((d) => d.absolute.path)
-            .toList());
+    List<Disk> listRemovableDisks = [];
+    for (var disk in disks) {
+      if (disk.busType.toLowerCase().trim() == "usb") {
+        listRemovableDisks.add(disk);
       }
     }
-    return drives;
+
+    return listRemovableDisks;
   }
 }

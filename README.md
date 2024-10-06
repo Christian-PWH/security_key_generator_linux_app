@@ -5,8 +5,10 @@ A flutter app based on linux platform for create and read security key on Flashd
 ## Changelog
 
 ```text
-Ver 0.0.3
-- revised Ui and data integration for home screen
+Ver 0.0.4
+- Add Scanning removable drive or bus type usb
+- Add Creating json file with the security code
+- Add Reading json file from the selected file
 ```
 
 ## Getting Started

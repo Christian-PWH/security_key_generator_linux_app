@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:disks_desktop/disks_desktop.dart';
 import 'package:flutter/material.dart';
 import 'package:security_key_generator/model/ui_model.dart/home_grid_btn_model.dart';
 import 'package:security_key_generator/utility/drive_utility.dart';
@@ -14,8 +15,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   DriveUtility detector = DriveUtility();
-  List<String> drives = [];
+  List<Disk> drives = [];
   String? selectedDrive;
+  Disk? selectedDisk;
   String fileContent = '';
   bool isScanning = true;
 
@@ -28,31 +30,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () => _loadDrives());
+    _loadDrives();
   }
 
-  void _loadDrives() {
+  void _loadDrives() async {
+    var getDrives = await detector.getDrives();
     setState(() {
-      drives = detector.getDrives();
-      if (drives.isNotEmpty) {
-        selectedDrive = drives.first;
-      }
+      drives = getDrives;
       isScanning = false;
     });
   }
 
   void _createJsonFile() async {
-    if (selectedDrive == null) {
+    if (selectedDrive == null && selectedDisk == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('There is no Selected Drive')));
       return;
     }
 
-    String filePath = '$selectedDrive/data.json';
+    String filePath = '${selectedDisk!.mountpoints[0].path}/key.json';
     File file = File(filePath);
 
     Map<String, dynamic> data = {
-      'message': 'Hello from Flutter!',
+      'key': '53cur1t1C0d3',
       'timestamp': DateTime.now().toIso8601String(),
     };
 
@@ -72,13 +72,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _readFile() async {
-    if (selectedDrive == null) {
+    if (selectedDrive == null && selectedDisk == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('There is no Selected Drive')));
       return;
     }
 
-    String filePath = '$selectedDrive/data.json';
+    String filePath = '${selectedDisk!.mountpoints[0].path}/key.json';
     File file = File(filePath);
 
     if (!file.existsSync()) {
@@ -90,9 +90,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       String content = await file.readAsString();
-      setState(() {
-        fileContent = content;
-      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Key is detected : $content")),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -111,8 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           isScanning = true;
         });
-        Future.delayed(const Duration(seconds: 3), () => _loadDrives());
-        return;
+        return _loadDrives();
     }
   }
 
@@ -161,7 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               }
-              return _buildListDriveItem(context, drives[index]);
+              return _buildListDriveItem(
+                  context, drives[index].toString(), drives[index]);
             },
           ),
         ),
@@ -169,10 +170,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildListDriveItem(BuildContext context, String driveName) {
+  Widget _buildListDriveItem(
+      BuildContext context, String driveName, Disk disk) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2.5),
       child: ListTile(
+        selected: selectedDrive == driveName,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
         leading: const Icon(
@@ -183,9 +186,16 @@ class _HomeScreenState extends State<HomeScreen> {
           driveName,
           style: Theme.of(context).textTheme.labelMedium,
         ),
+        dense: true,
         onTap: () {
           setState(() {
-            selectedDrive = driveName;
+            if (selectedDrive == driveName) {
+              selectedDrive = "";
+              selectedDisk = null;
+            } else {
+              selectedDrive = driveName;
+              selectedDisk = disk;
+            }
           });
         },
       ),
