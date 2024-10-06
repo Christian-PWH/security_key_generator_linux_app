@@ -5,9 +5,8 @@ A flutter app based on linux platform for create and read security key on Flashd
 ## Changelog
 
 ```text
-Ver 0.0.2
-- Basic ui for home screen
-- Add native drive check utility
+Ver 0.0.3
+- revised Ui and data integration for home screen
 ```
 
 ## Getting Started

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,16 +17,18 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> drives = [];
   String? selectedDrive;
   String fileContent = '';
+  bool isScanning = true;
 
   final List<HomeGridBtnModel> gridItems = [
     HomeGridBtnModel(icon: Icons.track_changes, label: "Scan Drive"),
     HomeGridBtnModel(icon: Icons.add_moderator, label: "Create key"),
+    HomeGridBtnModel(icon: Icons.document_scanner_outlined, label: "Read key"),
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadDrives();
+    Future.delayed(const Duration(seconds: 3), () => _loadDrives());
   }
 
   void _loadDrives() {
@@ -34,11 +37,46 @@ class _HomeScreenState extends State<HomeScreen> {
       if (drives.isNotEmpty) {
         selectedDrive = drives.first;
       }
+      isScanning = false;
     });
   }
 
+  void _createJsonFile() async {
+    if (selectedDrive == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('There is no Selected Drive')));
+      return;
+    }
+
+    String filePath = '$selectedDrive/data.json';
+    File file = File(filePath);
+
+    Map<String, dynamic> data = {
+      'message': 'Hello from Flutter!',
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    String jsonString = jsonEncode(data);
+
+    try {
+      await file.writeAsString(jsonString);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('JSON file created at $filePath')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating file: $e')),
+      );
+    }
+  }
+
   void _readFile() async {
-    if (selectedDrive == null) return;
+    if (selectedDrive == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('There is no Selected Drive')));
+      return;
+    }
 
     String filePath = '$selectedDrive/data.json';
     File file = File(filePath);
@@ -60,6 +98,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error reading file: $e')),
       );
+    }
+  }
+
+  void _gridBtnFunc(int index) {
+    switch (index) {
+      case 1:
+        return _createJsonFile();
+      case 2:
+        return _readFile();
+      default:
+        setState(() {
+          isScanning = true;
+        });
+        Future.delayed(const Duration(seconds: 3), () => _loadDrives());
+        return;
     }
   }
 
@@ -117,14 +170,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildListDriveItem(BuildContext context, String driveName) {
-    return ListTile(
-      leading: const Icon(
-        Icons.sd_storage,
-        size: 30.0,
-      ),
-      title: Text(
-        driveName,
-        style: Theme.of(context).textTheme.labelMedium,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2.5),
+      child: ListTile(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+        leading: const Icon(
+          Icons.sd_storage,
+          size: 30.0,
+        ),
+        title: Text(
+          driveName,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        onTap: () {
+          setState(() {
+            selectedDrive = driveName;
+          });
+        },
       ),
     );
   }
@@ -144,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: gridItems.length,
           itemBuilder: (context, index) => _buildGridBtnItem(
             context,
+            index,
             gridItems[index].icon,
             gridItems[index].label,
           ),
@@ -152,28 +216,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGridBtnItem(BuildContext context, IconData icon, String label) {
+  Widget _buildGridBtnItem(
+      BuildContext context, int index, IconData icon, String label) {
     return Card(
       elevation: 5.0,
       clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(10.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Icon(
-              icon,
-              size: 30.0,
+      child: Stack(
+        alignment: Alignment.center,
+        fit: StackFit.expand,
+        children: [
+          InkWell(
+            onTap: () => _gridBtnFunc(index),
+            borderRadius: BorderRadius.circular(10.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Icon(
+                  icon,
+                  size: 30.0,
+                ),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          ),
+          Visibility(
+            visible: isScanning,
+            child: Container(
+              color: Colors.white.withOpacity(0.6),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
